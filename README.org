@@ -1,0 +1,52 @@
+#+title: cl-format-server
+
+* cl-format-server
+The ~cl-format-server~ is a simple server that listens on a port and accepts
+s-expressions to be formatted and returned. It is intended to be used by other
+text editors to request the formatting of a source file without having to load
+a full lisp environment on each iteration.
+
+The server does not implement own formatting logic, but instead uses an
+abstraction to make use of existing algorithms. Currently, the following are
+supported:
+
+- ~trivial-formatter~
+- ~sblint~ (wip)
+- ~cl-indentify~
+- ~lisp-critic~ (wip)
+
+The project is in an early state so expect bugs, missing features and breaking
+changes.
+
+** Usage
+*** Server
+The server is started with the ~start-server~ function with optional ~Port~
+argument (default ~8080~). The server will then listen on the given port and
+wait for requests. The s-expressions are expected to be lists of the form
+~(:FORMAT-FUN arg)~.
+
+The server will dispatch on the handle function and
+call the handler ~:FORMAT-FUN~ and perform the defined task.
+*** Client
+
+** Implementing a handler
+For now we use the ~defhandler~ macro. The ~defhandler~ macro takes a keyword, a symbol name on which the string with the source is bound, and a function body returning the formatted string. For example:
+
+#+begin_src lisp
+(defhandler :trivial-formatter code
+  (with-output-to-string (stream)
+    (trivial-formatter:print-as-code
+      (read-sexps-from-string code
+        :read-fun #'trivial-formatter:read-as-code) stream)))
+#+end_src
+
+The result are three implementations of the ~handle~ generic function:
+- cl-format-server:handle :trivial-formatter code :: expects a string with the
+  source code (e.g. ~(handle :trivial-formatter"(defun foo () (print 1))")~) and
+  returns the formatted string.
+- cl-format-server:handle :trivial-formatter-file file-name :: expects a file-name
+  name (e.g. ~(handle :trivial-formatter-file "my-src.lisp")~) and returns the formatted string.
+- cl-format-server:handle :trivial-formatter-replace file-name :: expects a
+  file-name and replaces the file with the formatted string.
+
+The last two functions obviously only make sense if the server runs on the same machine as the client.
