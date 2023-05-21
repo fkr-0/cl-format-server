@@ -22,7 +22,8 @@ jobs:
       - run: echo $LISP
       - run: curl -L https://raw.githubusercontent.com/roswell/roswell/release/scripts/install-for-ci.sh | bash
       - run: ros install neil-lindquist/ci-utils # for run-fiveam
-
+      - run: ros install hyotang666/trivial-formatter
+      - run: ros install cxxxr/sblint
       - run: run-fiveam -e t -l cl-format-server-tests :cl-server-tests
       #- run: run-prove foo.asd
       #- run: rove foo.asd
