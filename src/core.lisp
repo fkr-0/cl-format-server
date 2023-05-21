@@ -1,8 +1,7 @@
 (in-package :cl-format-server)
 
-(defparameter *default-server-port* 8080)
-(defparameter *default-handler* :trivial-formatter)
-(defvar *server-instance* nil)
+
+
 
 ;;;; server
 
@@ -23,11 +22,28 @@
        (progn ,@body)
        (delete-temporary-asdf-project ,temp-dir))))
 
+
 (defun write-response (stream response)
   (format stream "~A" response))
-
+;;
+;; read request from stream as string:
+;; (defun read-request (stream)
+;;  (let ((request (read stream)))
+;;  (log:info "Request: ~A" request)
+;;
+;; (defun read-response (stream)
+;;  (let ((response (read stream)))
+;;  (log:info "Response: ~A" response)
+;;  response))
+;; (defun write-response (stream response)
+;;  (with-output-to-string (s)
+;;  (format s "~A" response)))
+;;  (format stream "~A" response)))
+;;  read stream: 
 (defun handle-client (client-stream)
-  (let ((request (read client-stream)))
+  (let ((request (get-output-stream-string client-stream )
+))
+
     (log:info "Request: ~A" request)
     (let ((response (handle-request request)))
       (log:info "Response: ~A" response)
@@ -57,6 +73,7 @@
 ;;     (let ((server-socket (usocket:socket-listen usocket:*wildcard-host* p :reuse-address t))
 ;;            (client-socket nil)
 ;;            (client-stream nil))
+
 
 ;;       (loop
 ;;         (setf client-socket (usocket:socket-accept server-socket))
@@ -191,14 +208,14 @@
 (defun handle-request (request)
   (log:info "handling request ~A" request)
   ;; (write-response request  request))
-  (when (not (= (mod (length request) 2)0))
+  ;; (when (not (= (mod (length request) 2)0))
     ;; wrap request in a plist
-    (setf request (list *default-handler* request)))
+    ;; (setf request (list *default-handler* request)))
   ;; and prevent error because no string is passed
   ;; stringify:
   ;; (setf request (format nil "~A" request)))
   (handler-case
-    (let* ((source-code (car (cdr request)))
+    (let* ((source-code (cdr request))
             (handler (car request)))
       ;; (asdf-project (create-temporary-asdf-project)))
       (unwind-protect
