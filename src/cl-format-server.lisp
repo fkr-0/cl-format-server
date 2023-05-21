@@ -1,5 +1,8 @@
 (in-package :cl-format-server)
 
+(defparameter *default-server-port* 8080)
+(defparameter *default-handler* :trivial-formatter)
+(defvar *server-instance* nil)
 (defun help ()
   (format t "~&Usage:
 
@@ -25,8 +28,9 @@
     (send-request "( defun dudu (x) (do-some-risky business))" :formatter "trivial-formatter" :port 8080))
   (when (member "--client-stdin" argv :test #'equal)
     (send-request (read-line) "trivial-formatter" :port (parse-integer (second argv) :junk-allowed t) ))
-  (when (member "--server" argv :test #'equal)
+  (when t;(member "--server" argv :test #'equal)
     (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
+    (log:info "Starting server on port: ~a" (or (and (second argv)(parse-integer (second argv) :junk-allowed t))*default-server-port*))
     (setf *server-instance* (start-server (or (and (second argv)(parse-integer (second argv) :junk-allowed t))*default-server-port*)))))
 
 

@@ -79,15 +79,27 @@
 ;; (lisp-critic:critique-file "aa.lisp" stream ))
 
 (defhandler :cl-indentify code
-  (with-output-to-string (stream)
-    (indentify:indentify (make-string-input-stream code) stream)))
+ (with-output-to-string (stream)
+   (indentify:indentify (make-string-input-stream code) stream)))
 
 (defhandler :trivial-formatter code
- (let ((formatted (with-output-to-string (stream)
-    (trivial-formatter:print-as-code
-      (read-sexps-from-string code
-        :read-fun #'trivial-formatter:read-as-code) stream))))
-   (subseq formatted 1 (1- (length formatted)))))
+  (let* ((sexps (if (listp code)
+                  code
+                  (read-sexps-from-string code
+                    :read-fun #'trivial-formatter:read-as-code)))
+          (_ (log:info "trivial-formatter on:\n ~A" sexps))
+         (formatted (with-output-to-string (stream)
+                      (loop
+                        :for sexp :in sexps
+                        :do (progn (trivial-formatter:print-as-code
+                              sexp stream)
+                              (format stream "~%~%"))))))
+                      ;; (mapcar (lambda (x) (trivial-formatter:print-as-code
+                      ;;   x stream)) sexps)
+
+    formatted)
+  )
+
 
 
 ;; (handle :trivial-formatter "(dd)(ls    a)
@@ -104,9 +116,7 @@
 (defun print-sexps-as-code (input-string)
   (with-input-from-string (stream input-string)
     (loop
-       :for sexp := (read stream nil :eof)
-       :until (eq sexp :eof)
-       :do (trivial-formatter:print-as-code sexp)
-       :collect sexp)))
-
-
+      :for sexp := (read stream nil :eof)
+      :until (eq sexp :eof)
+      :do (trivial-formatter:print-as-code sexp)
+      :collect sexp)))

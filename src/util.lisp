@@ -120,11 +120,15 @@ result of the body."
            ,@body))
        ;; Define the method dispatching on :<handlername>-file
        (defmethod handle ((key (eql ,handler-file-symbol)) ,code-str)
+         (when (listp ,code-str)
+           (setf ,code-str (first ,code-str)))
          (if (not (file-exists-p ,code-str))
            (error "File ~a does not exist" ,code-str))
          (handle ,handler-name-symbol (file-content-as-str ,code-str)))
        ;; Define the method dispatching on :<handlername>-replace
        (defmethod handle ((key (eql ,handler-replace-symbol)) ,code-str)
+         (when (listp ,code-str)
+           (setf ,code-str (first ,code-str)))
          (if (not (file-exists-p ,code-str))
            (error "File ~a does not exist" ,code-str)
            (with-replacing-file (,code-str code)

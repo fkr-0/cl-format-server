@@ -10,19 +10,21 @@
   :source-control (:git "")
 
   ;; Dependencies.
-  :depends-on (:usocket :bordeaux-threads :sblint :cl-indentify
-                :trivial-formatter :log4cl :fiveam)
+  :depends-on (:usocket :bordeaux-threads :cl-indentify
+                "trivial-formatter" :log4cl :fiveam)
 
   ;; Project stucture.
+  :pathname "src"
   :serial t
-  :components ((:module "src"
-                        :serial t
-                        :components ((:file "packages")
-                                      (:file "util")
-                                      (:file "core")
-                                      (:file "client")
-                                      (:file "handler")
-                                     (:file "cl-format-server"))))
+  :components (;; (:module "src"
+                ;;          :serial t
+                ;;          :components
+                (:file "packages")
+                (:file "util")
+                (:file "client")
+                (:file "core")
+                (:file "handler")
+                (:file "cl-format-server"))
 
   ;; Build a binary:
   ;; don't change this line.
