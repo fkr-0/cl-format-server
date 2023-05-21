@@ -28,6 +28,68 @@ wait for requests. The s-expressions are expected to be lists of the form
 The server will dispatch on the handle function and
 call the handler ~:FORMAT-FUN~ and perform the defined task.
 *** Client
+**** Emacs
+When you are e.g. using the ~format-all~ mode, the following code should get you
+started:
+1. Define general purpose function to send a string to a socket:
+
+   #+begin_src emacs-lisp
+(defun send-string-to-socket (string port)
+  "Send STRING to PORT on localhost."
+  (interactive "sString: \nnPort: ")
+  (let* ((bufname  "*cl-format-server*")
+          (buffer (progn
+                    (get-buffer-create bufname)
+                    (with-current-buffer  bufname
+                      (erase-buffer)
+                      (current-buffer))))
+          (proc (open-network-stream "socket" buffer
+                  "localhost" port
+                  :type 'plain
+                  :nowait t))
+          (output
+            (progn
+              (unwind-protect
+                (progn
+                  (process-send-string proc string)
+                  (process-send-eof proc)
+                  (accept-process-output proc))
+                (delete-process proc))
+              (with-current-buffer buffer
+                (substring-no-properties (buffer-string))))))output))
+
+   #+end_src
+
+2. Implement functions for sending strings/filenames:
+
+   #+begin_src emacs-lisp
+(defun remote-format-lisp-replace (fn port &optional formatter)
+  (let ((formatter (or formatter ":trivial-formatter-replace")))
+    (send-string-to-socket(concat "(" formatter " " (prin1-to-string fn) ")") port)))
+(defun remote-format-lisp-string (str port &optional formatter)
+  (let ((formatter (or formatter ":trivial-formatter")))
+    (send-string-to-socket(concat "(" formatter " " (format "%s" str) ")") port)))
+(defun remote-format-lisp-file (fn port &optional formatter)
+  (let ((formatter (or formatter ":trivial-formatter-file")))
+    (send-string-to-socket(concat "(" formatter " " (prin1-to-string fn) ")") port)))
+
+;; example usage:
+;; (remote-format-lisp-replace "/path/to/my/file.lisp" 8080)
+;; (remote-format-lisp-file  "/path/to/my/file.lisp" 8080)
+;; (remote-format-lisp-string (prin1-to-string "(defvar a 2) (defvar b 3)") 8080)
+;; (remote-format-lisp-string  "(defvar a 2) (defvar b 3)" 8080)
+   #+end_src
+
+3. ~format-all~ requires a function that receives a string and inserts the
+   formatted string, so we define a function that does that:
+
+   #+begin_src emacs-lisp
+(defun format-lisp (x)
+  (insert (remote-format-lisp-string x 8080))
+  '(nil ""))
+(set-formatter! 'cl-format-server #'format-lisp :modes '(lisp-mode lisp))
+   #+end_src
+
 
 ** Implementing a handler
 For now we use the ~defhandler~ macro. The ~defhandler~ macro takes a keyword, a symbol name on which the string with the source is bound, and a function body returning the formatted string. For example:
@@ -42,7 +104,7 @@ For now we use the ~defhandler~ macro. The ~defhandler~ macro takes a keyword, a
 
 The result are three implementations of the ~handle~ generic function:
 - cl-format-server:handle :trivial-formatter code :: expects a string with the
-  source code (e.g. ~(handle :trivial-formatter"(defun foo () (print 1))")~) and
+  source code (e.g. ~(handle :trivial-formatter "(defun foo () (print 1))")~) and
   returns the formatted string.
 - cl-format-server:handle :trivial-formatter-file file-name :: expects a file-name
   name (e.g. ~(handle :trivial-formatter-file "my-src.lisp")~) and returns the formatted string.
