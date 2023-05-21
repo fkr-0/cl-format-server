@@ -24,7 +24,8 @@ jobs:
       - run: ros install neil-lindquist/ci-utils # for run-fiveam
       - run: ros install hyotang666/trivial-formatter
       - run: ros install cxxxr/sblint
-      - run: ros use sbcl-bin/2.3.2
+      - run: ros install sbcl-bin/2.3.0
+      - run: ros use sbcl-bin/2.3.0
       - run: run-fiveam -e t -l cl-format-server-tests :cl-server-tests
       #- run: run-prove foo.asd
       #- run: rove foo.asd
