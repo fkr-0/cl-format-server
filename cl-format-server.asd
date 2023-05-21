@@ -11,7 +11,7 @@
 
   ;; Dependencies.
   :depends-on (:usocket :bordeaux-threads :cl-indentify
-                "trivial-formatter" :log4cl :fiveam)
+                :trivial-formatter :log4cl :fiveam)
 
   ;; Project stucture.
   :pathname "src"

@@ -1,31 +1,87 @@
 (in-package :cl-format-server-tests)
 
-;; Define your project tests here...
-
-(def-suite testmain
+(def-suite cl-server-tests
     :description "test suite 1")
 
-(in-suite testmain)
+(in-suite cl-server-tests)
 
-(test test1
-  (is (= (+ 1 1)
-         3)))
-(ert-deftest test-handle-request ()
-  ;; Add test cases for handle-request
-  )
+(def-suite keywordify-test :in cl-server-tests)
 
-(ert-deftest test-create-temporary-asdf-project ()
-  ;; Add test cases for create-temporary-asdf-project
-  )
+(in-suite keywordify-test)
 
-(ert-deftest test-add-code-to-temporary-asdf-project ()
-  ;; Add test cases for add-code-to-temporary-asdf-project
-  )
+(test basic
+  (is (equal :HELLO (keywordify "hello"))))
 
-(ert-deftest test-delete-temporary-asdf-project ()
-  ;; Add test cases for delete-temporary-asdf-project
-  )
+(test with-suffix
+  (is (equal :HELLO-WORLD (keywordify "hello" "world"))))
 
-(ert-deftest test-linters-and-formatters ()
-  ;; Add test cases for lint and format functions
-  )
+(test multiple-suffixes
+  (is (equal :HELLO-WORLD-AGAIN (keywordify "hello" "world" "again"))))
+
+;; (test trim-colons
+;;   (is (equal :HELLO (keywordify ":hello:")))
+;;   (is (equal :HELLO-WORLD (keywordify ":hello:world:")))
+;;   (is (equal :HELLO-WORLD-AGAIN (keywordify ":hello:world:again:"))))
+
+(test uppercase
+  (is (equal :HELLO (keywordify "HeLlO"))))
+
+;; (test with-spaces
+;;     (is (equal :HELLO-WORLD (keywordify "hello world"))))
+
+(def-suite str-to-file-test :in cl-server-tests)
+
+(in-suite str-to-file-test)
+
+(defparameter *test-file-path* "/tmp/cl-format-server-test-file.txt")
+
+(defmacro with-test-file ((file-path str-symbol) &body body)
+  "Creates a temporary file with the content of `str-symbol` and binds the
+file path to `file-path` in the body. The file is deleted after the body has
+been evaluated."
+  (let ((file-path-symbol (gensym)))
+    `(let ((,str-symbol (gensym)))
+       (with-open-file (,str-symbol (make-pathname :name "test-file" :type "txt")
+                                      :direction :output :if-exists :supersede)
+         (write-line "This is a test file." ,str-symbol))
+       (let ((,file-path-symbol (make-pathname :name "test-file" :type "txt")))
+         ,@body)
+       (delete-file ,file-path-symbol))))
+(test basic
+  (with-test-file (file-path str)
+    (str-to-file "Hello" file-path)
+    (is (equal "Hello" (file-content-as-str file-path)))
+    (delete-file file-path)))
+
+(test overwrite
+  (let ((file-path "test.txt"))
+    (str-to-file "Hello" file-path)
+    (str-to-file "World" file-path)
+    (is (equal "World" (file-content-as-str file-path)))
+    (delete-file file-path)))
+
+(test append
+    (let ((file-path "test.txt"))
+        (str-to-file "Hello" file-path)
+        (str-to-file "World" file-path :if-exists :append)
+        (is (equal "HelloWorld" (file-content-as-str file-path)))
+        (delete-file file-path)))
+
+(def-suite with-file-content-test :in cl-server-tests)
+
+(in-suite with-file-content-test)
+
+(test basic
+  (let ((file-path "test.txt")
+        (str))
+    (str-to-file "Hello" file-path)
+    (with-file-content (file-path str)
+      (is (equal "Hello" str)))
+    (delete-file file-path)))
+
+(test error
+  (let ((file-path 1)
+        (str))
+    (signals error 
+      (with-file-content (file-path str)
+        (is (equal "Hello" str))))))

@@ -26,7 +26,7 @@ keyword :MY-FUN-FILE-REPLACE"
 
 (defun str-to-file (str file-path &key (if-exists :supersede))
   "Writes a string to a file. If the file exists it is overwritten by default"
-  (with-open-file (stream file-path :direction :output :if-exists :supersede)
+  (with-open-file (stream file-path :direction :output :if-exists if-exists)
     (write-sequence str stream)))
 
 (defun file-content-as-str (file-path)
