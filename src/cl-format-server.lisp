@@ -24,14 +24,17 @@
     ;; clingon, unix-opts, defmain, adopt… when needed.
     (help)
     (uiop:quit))
-  (when (member "--sample-request" argv :test #'equal)
-    (send-request "( defun dudu (x) (do-some-risky business))" :formatter "trivial-formatter" :port 8080))
-  (when (member "--client-stdin" argv :test #'equal)
-    (send-request (read-line) "trivial-formatter" :port (parse-integer (second argv) :junk-allowed t) ))
-  (when t;(member "--server" argv :test #'equal)
-    (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
-    (log:info "Starting server on port: ~a" (or (and (second argv)(parse-integer (second argv) :junk-allowed t))*default-server-port*))
-    (setf *server-instance* (start-server (or (and (second argv)(parse-integer (second argv) :junk-allowed t))*default-server-port*)))))
+  (cond
+
+    ((member "--sample-request" argv :test #'equal)
+      (send-request "( defun dudu (x) (do-some-risky business))" :formatter "trivial-formatter" :port 8080))
+    ((member "--client-stdin" argv :test #'equal)
+      (simple-req (read-line) (parse-integer (second argv) :junk-allowed t) ))
+    (t;(member "--server" argv :test #'equal)
+      (progn
+        (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
+        (log:info "Starting server on port: ~a" (or (and (second argv)(parse-integer (second argv) :junk-allowed t))*default-server-port*))
+        (setf *server-instance* (start-server (or (and (second argv)(parse-integer (second argv) :junk-allowed t))*default-server-port*)))))))
 
 
 (defun main ()

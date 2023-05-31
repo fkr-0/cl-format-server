@@ -135,11 +135,3 @@ result of the body."
              (handle ,handler-name-symbol code)))))))
 
 
-;; Define a handler using the `defhandler` macro
-;; (defhandler :example arg
-;;   (concatenate 'string "Arg: " (string arg)))
-;; Test the handler
-;; (handle :EXAMPLE "Some data")
-;; (handle :EXAMPLE-FILE "oho.test")
-;; (handle :EXAMPLE-REPLACE "oho.test")
-;; (list-handlers)

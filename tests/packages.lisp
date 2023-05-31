@@ -4,5 +4,4 @@
         :fiveam
         :cl-format-server))
 
-
 (in-package :cl-format-server-tests)
