@@ -90,8 +90,29 @@ started:
 (set-formatter! 'cl-format-server #'format-lisp :modes '(lisp-mode lisp))
    #+end_src
 
+**** Netcat
+#+begin_src shell
+echo "(:trivial-formatter (def b 1)                  (def c 2))" | nc localhost 8081 # replace port, code...
+#+end_src
+**** Curl
+#+begin_src shell
+curl -d "(:trivial-formatter (def b 1)                  (def c 2))" -X POST http://localhost:8081
+#+end_src
 
 ** Implementing a handler
+*** Tl;dr
+#+begin_src lisp
+;; Define a handler using the `defhandler` macro
+;; (defhandler :example arg
+;;   (concatenate 'string "Arg: " (string arg)))
+;; Test the handler
+;; (handle :EXAMPLE "Some data")
+;; (handle :EXAMPLE-FILE "oho.test")
+;; (handle :EXAMPLE-REPLACE "oho.test")
+;; (list-handlers)
+#+end_src
+
+*** Details
 For now we use the ~defhandler~ macro. The ~defhandler~ macro takes a keyword, a symbol name on which the string with the source is bound, and a function body returning the formatted string. For example:
 
 #+begin_src lisp
