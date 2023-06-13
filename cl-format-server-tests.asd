@@ -10,7 +10,8 @@
   :components ((:module "tests"
                         :serial t
                         :components ((:file "packages")
-                                     (:file "test-cl-format-server"))))
+                                     (:file "test-cl-format-server")
+                                      (:file "test-utils"))))
 
   ;; The following would not return the right exit code on error, but still 0.
   ;; :perform (test-op (op _) (symbol-call :fiveam :run-all-tests))
