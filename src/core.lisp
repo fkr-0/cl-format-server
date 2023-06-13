@@ -127,6 +127,12 @@
                       (log:info "Response: ~A" response)
                       (write-response client-stream response)
                       (finish-output client-stream))))
+                (let ((request (read-request client-stream)))
+                  (log:info "Request: ~A" request)
+                  (let ((response (handle-request request)))
+                    (log:info "Response: ~A" response)
+                    (write-response client-stream response)
+                    (finish-output client-stream))))
               (usocket:socket-close client-socket))))))))
 
 (defun start-server (p);(&optional (port 8080))

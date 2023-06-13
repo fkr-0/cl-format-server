@@ -16,8 +16,16 @@ been evaluated."
        (delete-file ,file-path-symbol))))
 
 (test test-read-sexps-from-string
-  (let ((input-string "(+ 1 2)\n(- 3 4)\n(/ 5 6)\n(* 7 8)\n"))
-    (is (equal (read-sexps-from-string input-string) '(+ 1 2 - 3 4 / 5 6 * 7 8)))))
+  (let ((input-string "(+
+2
+3)(+ 1 2
+(- 3 4)
+(/ 5 6)
+(* 7 8)
+
+)
+"))
+    (is (equal (read-sexps-from-string input-string) '((+ 2 3)(+ 1 2 (- 3 4) ( / 5 6 ) (* 7 8)))))))
 
 (test test-keywordify
   (is (equal (keywordify "my-fun" "file" "replace") :MY-FUN-FILE-REPLACE))
