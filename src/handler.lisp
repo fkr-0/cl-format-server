@@ -11,15 +11,30 @@
                   code
                   (read-sexps-from-string code
                     :read-fun #'trivial-formatter:read-as-code)))
-          (_ (log:info "trivial-formatter on:\n ~A" sexps))
-          (formatted (with-output-to-string (stream)
-                       (loop
-                         :for sexp :in sexps
-                         :do (progn (trivial-formatter:print-as-code
-                                      sexp stream)
-                               (format stream "~%~%"))))))
+          (formatted
+            (with-output-to-string (stream)
+              ;; (log:info "trivial-formatter on:\n ~A" sexps)
+              (loop
+                :for sexp :in sexps
+                :do (progn (trivial-formatter:print-as-code
+                             sexp stream)
+                      (format stream "~%~%"))))))
     ;; (mapcar (lambda (x) (trivial-formatter:print-as-code
     ;;   x stream)) sexps)
+    formatted))
+
+(defhandler :lisp-critic cd
+  (with-output-to-string (str)
+    (with-content-tmp-file
+      ("/tmp/cl.format.server.XXXXXX" fn fn-stream cd)
+      (lisp-critic:critique-file fn str))))
+
+(defhandler :sblint cd
+  (with-output-to-string (str)
+    (with-content-tmp-file
+      ("/tmp/cl.format.server.XXXXXX" fn fn-stream cd)
+      (sblint:run-lint-file fn str))))
+
 
     formatted)
   )
