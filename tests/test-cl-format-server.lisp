@@ -1,13 +1,9 @@
 (in-package :cl-format-server-tests)
 
-(def-suite cl-server-tests
-    :description "test suite 1")
+(def-suite cl-format-server-tests
+  :description "test suite 1")
 
-(in-suite cl-server-tests)
-
-(def-suite keywordify-test :in cl-server-tests)
-
-(in-suite keywordify-test)
+(in-suite cl-format-server-tests)
 
 (test basic
   (is (equal :HELLO (keywordify "hello"))))
@@ -18,10 +14,11 @@
 (test multiple-suffixes
   (is (equal :HELLO-WORLD-AGAIN (keywordify "hello" "world" "again"))))
 
-;; (test trim-colons
-;;   (is (equal :HELLO (keywordify ":hello:")))
-;;   (is (equal :HELLO-WORLD (keywordify ":hello:world:")))
-;;   (is (equal :HELLO-WORLD-AGAIN (keywordify ":hello:world:again:"))))
+(test trim-colons
+  (is (equal :HELLO (keywordify ":hello:")))
+  (is (equal :HELLO-WORLD (keywordify ":hello:" "world:")))
+  (is (equal :HELLO-WORLD (keywordify ":hello:" ":world:")))
+  (is (equal :HELLO-WORLD-AGAIN (keywordify ":hello:" "world:" "again:"))))
 
 (test uppercase
   (is (equal :HELLO (keywordify "HeLlO"))))
@@ -29,9 +26,9 @@
 ;; (test with-spaces
 ;;     (is (equal :HELLO-WORLD (keywordify "hello world"))))
 
-(def-suite str-to-file-test :in cl-server-tests)
+;; (def-suite str-to-file-test :in cl-server-tests)
 
-(in-suite str-to-file-test)
+;; (in-suite str-to-file-test)
 
 (defparameter *test-file-path* "/tmp/cl-format-server-test-file.txt")
 
@@ -42,7 +39,7 @@ been evaluated."
   (let ((file-path-symbol (gensym)))
     `(let ((,str-symbol (gensym)))
        (with-open-file (,str-symbol (make-pathname :name "test-file" :type "txt")
-                                      :direction :output :if-exists :supersede)
+                         :direction :output :if-exists :supersede)
          (write-line "This is a test file." ,str-symbol))
        (let ((,file-path-symbol (make-pathname :name "test-file" :type "txt")))
          ,@body)
@@ -61,19 +58,19 @@ been evaluated."
     (delete-file file-path)))
 
 (test append
-    (let ((file-path "test.txt"))
-        (str-to-file "Hello" file-path)
-        (str-to-file "World" file-path :if-exists :append)
-        (is (equal "HelloWorld" (file-content-as-str file-path)))
-        (delete-file file-path)))
+  (let ((file-path "test.txt"))
+    (str-to-file "Hello" file-path)
+    (str-to-file "World" file-path :if-exists :append)
+    (is (equal "HelloWorld" (file-content-as-str file-path)))
+    (delete-file file-path)))
 
-(def-suite with-file-content-test :in cl-server-tests)
+;; (def-suite with-file-content-test :in cl-server-tests)
 
-(in-suite with-file-content-test)
+;; (in-suite with-file-content-test)
 
 (test basic
   (let ((file-path "test.txt")
-        (str))
+         (str))
     (str-to-file "Hello" file-path)
     (with-file-content (file-path str)
       (is (equal "Hello" str)))
@@ -81,7 +78,7 @@ been evaluated."
 
 (test error
   (let ((file-path 1)
-        (str))
-    (signals error 
+         (str))
+    (signals error
       (with-file-content (file-path str)
         (is (equal "Hello" str))))))
