@@ -1,8 +1,5 @@
 (in-package :cl-format-server)
 
-(defparameter *default-server-port* 8080)
-(defparameter *default-handler* :trivial-formatter)
-(defvar *server-instance* nil)
 (defun help ()
   (format t "~&Usage:
 
