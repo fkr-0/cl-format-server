@@ -176,6 +176,15 @@ Returns:
 (defgeneric handle (handler source-code-str)
   (:documentation "Handles the source-code-str with the handler"))
 
+(defmethod handle ((handler string) source-code-str)
+  "Allows specifying `handler' as a string. The string is converted to a keyword
+and the method is called again."
+  (handle (intern (string-upcase (string-trim '(#\: #\ ) handler)) 'keyword)
+    source-code-str))
+
+(defmethod handle ((handler (eql :print)) source-code-str)
+  (print source-code-str))
+
 (defmacro defhandler (handler-name code-str &body body)
   "Defines a handler for the generic function `handle`. The handler is defined
 as a method dispatching on the keyword `handler-name`. The handler is also

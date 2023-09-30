@@ -81,6 +81,7 @@
          (lines (read-line stream nil nil)))
     (log:info "read line ~A" lines)
     lines))
+
 (defun read-str-request (stream)
   (log:info "reading request")
   (let (;; (read-delimited-lis t)
@@ -89,7 +90,6 @@
     lines))
 
 (defun handle-request (request)
-
   (log:info "handling request ~A" request)
   ;; regex for (:<formatter-name> <source-code>)
   (destructuring-bind (handler source-code)

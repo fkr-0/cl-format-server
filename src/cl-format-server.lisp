@@ -23,7 +23,9 @@
     (help)
     (uiop:quit))
   (cond
-
+    ((member "cli" argv :test #'equal)
+      (progn
+        (format t "~A~A~%" #\NewLine (handle (second argv) (third argv)))))
     ((member "--sample-request" argv :test #'equal)
       (send-request "( defun dudu (x) (do-some-risky business))" :formatter "trivial-formatter" :port 8080))
     ((member "--client-stdin" argv :test #'equal)
@@ -42,5 +44,5 @@
   ;; We defer the work of parsing to %main because we call it also from the Roswell script.
   (%main (uiop:command-line-arguments))
   ;; Return 0 to indicate success.
-  (format t "Exit." )
+  ;; (format t "Exit.~%" )
   (sb-ext:exit :code 0))
