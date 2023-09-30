@@ -107,10 +107,6 @@ of the new or overwritten file is the result of the body.
          (let ((rs (progn ,@body)))
            (str-to-file rs ,file-path-symbol))))))
 
-;;; The `with-tmp-file` macro creates a temporary file using a template string.
-;;; The filename and file stream handler are bound to variables within the body of the macro.
-;;; The temporary file is automatically deleted after the body executes.
-
 ;; (defmacro with-tmp-file ((template-string file-name-variable file-handler-variable) &body body)
 ;;   `(let* ((,file-name-variable (sb-posix:mktemp ,template-string)))
 ;;      (unwind-protect
@@ -120,8 +116,6 @@ of the new or overwritten file is the result of the body.
 ;;        (if nil
 ;;          (delete-file ,file-name-variable)
 ;;          (log-info "File ~a not deleted" ,file-name-variable)))))
-;;; Yes, you can use the `values` function to return multiple values.
-;;; Updated the macro to return both the filename and the value(s) returned by the body expression when `delete-p` is nil.
 
 (defmacro with-tmp-file-base ((template-string file-name-variable file-handler-variable &key (content nil) (delete-p t)) &body body)
   `(let* ((,file-name-variable ,(sb-posix:mktemp template-string))
@@ -177,31 +171,11 @@ Returns:
      (with-tmp-file-base (,template-string ,file-name-variable ,file-handler-variable :content nil :delete-p nil)
        (progn ,@body))))
 
-;; (defmacro replacing-file (file-path &body body)
-;;   "Opens a file and binds the content of the file to the symbol `str-symbol` in
-;; the body. The file is closed after the body has been evaluated. If the file
-;; does not exist it is created. If the file exists it is renamed to
-;; <filename>.bak and the new file is written to the file-path."
-;;   (let ((file-path-symbol (gensym)))
-;;     `(let ((,file-path-symbol ,file-path))
-;;        (when (not (stringp ,file-path))
-;;          (error "file-path must be a string"))
-;;        (unwind-protect
-;;          (if (not (file-exists-p ,file-path))
-;;            (str-to-file (newline-str ,@body) ,file-path)
-;;            (progn
-;;              (rename-file ,file-path-symbol (concatenate 'string ,file-path-symbol ".bak"))
-;;              (str-to-file (newline-str ,@body) ,file-path)))
-;;          (delete-file (concatenate 'string ,file-path-symbol ".bak"))))))
-
-
 ;;;;; Define the generic function `handle` and a macro `defhandler` adding implementations to `handle`
 
-;; Define the generic function `handle`
 (defgeneric handle (handler source-code-str)
   (:documentation "Handles the source-code-str with the handler"))
 
-;; Define the `defhandler` macro
 (defmacro defhandler (handler-name code-str &body body)
   "Defines a handler for the generic function `handle`. The handler is defined
 as a method dispatching on the keyword `handler-name`. The handler is also
@@ -235,3 +209,99 @@ result of the body."
              (handle ,handler-name-symbol code)))))))
 
 
+(defun generate-asdf-system-definition (system-name &optional (path "/tmp/"))
+  (let ((case-corrected-system-name (string-downcase (concatenate 'string "" system-name)))
+         (case-corrected-file-name (string-downcase (concatenate 'string "file" system-name))))
+    (format nil "(defsystem ~S :pathname ~S :components ((:file ~S)))"
+      case-corrected-system-name path case-corrected-file-name)))
+
+(defmacro with-code-in-temporary-asdf-system (code in-asdf-sys loaded-code-file &body body)
+  "Evaluate BODY in the context of a temporary ASDF system. The system is
+created with the name IN-ASDF-SYS and the code is written to a file with the
+name LOADED-CODE-FILE. The system is loaded and the code is loaded. The
+temporary system is deleted after the body has been evaluated.
+  Arguments:
+    code: The code to be evaluated
+    in-asdf-sys: The name of the temporary ASDF system
+    loaded-code-file: The name of the file to which the code is written
+  Example:
+    (with-code-in-temporary-asdf-system
+      \"(format nil \\\"Hello, world!\\\") (format nil \\\"dud\\\")\"
+      my-temp-system tmp-code-file
+      (log-info \"Temp system: ~A\" my-temp-system)
+      (log-info \"Temp code: ~A\" tmp-code-file)
+      (log-info \"Content Pre: ~A\" (file-content-as-str tmp-code-file))
+      (trivial-formatter:fmt my-temp-system :supersede)
+      (log-info \"Content Post: ~A\" (file-content-as-str tmp-code-file))
+      (newline-str (file-content-as-str tmp-code-file)))
+   Returns:
+     The result of evaluating BODY"
+  `(let* ((,in-asdf-sys (string-downcase (sb-posix:mktemp "tmpXXXXXX")))
+           (temp-file-path (format nil "/tmp/~A.asd" ,in-asdf-sys))
+           (system-definition (generate-asdf-system-definition ,in-asdf-sys))
+           (,loaded-code-file (format nil "/tmp/file~A.lisp" (string-downcase ,in-asdf-sys))))
+     (unwind-protect
+       (progn
+         (with-open-file (stream temp-file-path :direction :output :if-exists :supersede)
+           (write-string system-definition stream)
+           (force-output stream))
+         (with-open-file (stream ,loaded-code-file :direction :output :if-exists :supersede)
+           (write-string ,code stream)
+           (force-output stream))
+         ;; (log-info "Loading ASDF system: ~A" temp-file-path)
+         (asdf:load-asd temp-file-path)
+         ;; (log-info "Finding system: ~A" ,in-asdf-sys)
+         ;; (asdf:find-system temp-file-path)
+         ;; (log-info "Loading system: ~A" ,in-asdf-sys)
+         ;; (asdf:load-system ,in-asdf-sys)
+         (progn
+           ,@body))
+       ;; Cleanup code
+       (progn
+         (asdf:clear-system ,in-asdf-sys)
+         (delete-file temp-file-path)
+         (delete-file ,loaded-code-file)))))
+
+;; (with-code-in-temporary-asdf-system
+;;   "(format nil \"Hello, world!\") (format nil \"dud\")" my-temp-system tmp-code-file
+;;   (log-info "Temp system: ~A" my-temp-system)
+;;   (log-info "Temp code: ~A" tmp-code-file)
+;;   (log-info "Content Pre: ~A" (file-content-as-str tmp-code-file))
+;;   (trivial-formatter:fmt my-temp-system :supersede)
+;;   (log-info "Content Post: ~A" (file-content-as-str tmp-code-file))
+;;   (newline-str (file-content-as-str tmp-code-file)))
+
+(defun print-sexps-as-code (input-string)
+  "Reads sexps from a string and prints them as code.
+  Arguments:
+    input-string: The string to read sexps from
+  Returns:
+    The string with all sexps printed as formatted strings
+  Example:
+    (print-sexps-as-code \"(format nil \\\"Hello, world!\\\") (format nil \\\"dud\\\")\")
+    => \"(format nil \\\"Hello, world!\\\")\"
+       \"(format nil \\\"dud\\\")\""
+  (with-output-to-string (o-stream)
+    (with-input-from-string (stream input-string)
+      (loop
+        :for sexp := (trivial-formatter:read-as-code stream nil :eof)
+        :until (eq sexp :eof)
+        :do (trivial-formatter:print-as-code sexp o-stream)
+        :do (format o-stream "~%") ;; insert ~&?
+        ))))
+;; :collect sexp))))
+
+(defun sexps-as-list (input-string)
+  "Reads sexps from a string and returns them as a list.
+  Arguments:
+    input-string: The string to read sexps from
+  Returns:
+    A list of the sexps read as regular lisp objects
+  Example:
+    (sexps-as-list \"(format nil \\\"Hello, world!\\\") (format nil \\\"dud\\\")\")
+    => ((FORMAT NIL \"Hello, world!\") (FORMAT NIL \"dud\))"
+  (with-input-from-string (stream input-string)
+    (loop
+      :for sexp := (trivial-formatter:read-as-code stream nil :eof)
+      :until (eq sexp :eof)
+      collect  sexp)))
