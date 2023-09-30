@@ -7,11 +7,12 @@
 
 (defun ctrl-c-handler (signal code scp)
   (declare (ignore signal code scp))
-  (format t "~%Caught Ctrl-C, stopping...~%")
+  (log:info "~%Caught Ctrl-C, stopping...~%")
   (when *server-instance*
     (log:info "Stopping server: ~a" *server-instance*)
     (stop-server *server-instance*))
   (uiop:quit))
+
 ;; parse the cli args
 (defun %main (argv)
   "Parse CLI args."

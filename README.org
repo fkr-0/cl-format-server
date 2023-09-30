@@ -1,19 +1,19 @@
 #+title: cl-format-server
 
 * cl-format-server
-The ~cl-format-server~ is a simple server that listens on a port and accepts
-s-expressions to be formatted and returned. It is intended to be used by other
-text editors to request the formatting of a source file without having to load
-a full lisp environment on each iteration.
+The ~cl-format-server~ is a simple server implementation that listens on a port
+and accepts s-expressions to be formatted and returned. It is intended to be
+used by text editors to request the formatting of a source file without
+having to load a full lisp environment on each iteration.
 
-The server does not implement own formatting logic, but instead uses an
-abstraction to make use of existing algorithms. Currently, the following are
+The server does not implement its own formatting logic, but instead uses an
+abstraction to make use of existing algorithms/libraries. Currently, the following are
 supported:
 
 - ~trivial-formatter~
-- ~sblint~ (wip)
+- ~sblint~
 - ~cl-indentify~
-- ~lisp-critic~ (wip)
+- ~lisp-critic~
 
 The project is in an early state so expect bugs, missing features and breaking
 changes.

@@ -24,10 +24,11 @@
     ;; (start-time (get-internal-real-time))
     (loop while (running server) do
       (let ((client-socket (usocket:socket-accept server-socket)))
-        (bordeaux-threads:make-thread
-          (lambda ()
-            (unwind-protect
-              (with-time-measurement
+        (setf (server-thread server)
+          (bordeaux-threads:make-thread
+            (lambda ()
+              (unwind-protect
+                ;; (with-time-measurement
                 (with-open-stream
                   (client-stream (usocket:socket-stream client-socket))
                   ;; (log:info (trivial-formatter:read-as-code client-stream))
@@ -39,7 +40,7 @@
                     (let ((response (handle-request request)))
                       (log:info "Response: ~A" response)
                       (format client-stream "~A~%" response) ;; former "write-response"
-                      (finish-output client-stream))))
+                      (finish-output client-stream))));)
                 (usocket:socket-close client-socket)))))))))
 
 (defun start-server (p);(&optional (port 8080))
@@ -48,8 +49,10 @@
     (setf (server-socket server) (usocket:socket-listen usocket:*wildcard-host* p))
     (setf (running server) t)
     ;; (setf (server-thread server) (bordeaux-threads:make-thread (lambda () (server-loop server))))
-    (server-loop
-      server)))
+    (unwind-protect
+      (server-loop
+        server)
+      (stop-server server))))
 
 (defmacro with-time-measurement (&body body)
   `(let ((start-time (get-internal-real-time)))
@@ -61,6 +64,7 @@
 (defun stop-server (server)
   (setf (running server) nil)
   (usocket:socket-close (server-socket server))
+  ;; (usocket:socket-shutdown (server-socket server) :IO)
   (bordeaux-threads:join-thread (server-thread server))
   (log:info "Server stopped"))
 
@@ -74,11 +78,34 @@
 (defun read-request (stream)
   (log:info "reading request")
   (let (;; (read-delimited-lis t)
-         (lines (read stream nil nil)))
+         (lines (read-line stream nil nil)))
+    (log:info "read line ~A" lines)
+    lines))
+(defun read-str-request (stream)
+  (log:info "reading request")
+  (let (;; (read-delimited-lis t)
+         (lines (read-line stream nil nil)))
     (log:info "read line ~A" lines)
     lines))
 
 (defun handle-request (request)
+
+  (log:info "handling request ~A" request)
+  ;; regex for (:<formatter-name> <source-code>)
+  (destructuring-bind (handler source-code)
+    (let ((groups (second
+                    (multiple-value-list
+                      (ppcre:scan-to-strings ":([^ ]+) (.*)\\)"
+                        request)))))
+      (list (aref groups 0) (aref groups 1)))
+    (log:info "handler: ~A" handler)
+    (log:info "source-code: ~A" source-code)
+    (if (null handler)
+      (setf handler *default-handler*)
+      (handle (intern (string-upcase handler) 'keyword)
+        source-code))))
+
+(defun handle-request-sym (request)
   (log:info "handling request ~A" request)
   (let* ((handler (when (typep (car request) 'symbol)
                     (car request)))

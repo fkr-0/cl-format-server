@@ -10,7 +10,7 @@
   :source-control (:git "")
 
   ;; Dependencies.
-  :depends-on (:usocket :bordeaux-threads :cl-indentify :sblint
+  :depends-on (:usocket :bordeaux-threads :cl-indentify :sblint :cl-ppcre
                 :trivial-formatter :lisp-critic :log4cl :fiveam)
 
   ;; Project stucture.
@@ -21,9 +21,9 @@
                 ;;          :components
                 (:file "packages")
                 (:file "util")
-                (:file "client")
                 (:file "core")
                 (:file "handler")
+                (:file "client")
                 (:file "cl-format-server"))
 
   ;; Build a binary:
