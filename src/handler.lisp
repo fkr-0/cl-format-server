@@ -1,7 +1,5 @@
 (in-package :cl-format-server)
 
-
-
 (defhandler :cl-indentify code
   (with-output-to-string (stream)
     (indentify:indentify (make-string-input-stream code) stream)))
@@ -36,16 +34,7 @@
       (sblint:run-lint-file fn str))))
 
 
-    formatted)
-  )
-
-
-
-;; apply read-sexps to print-as-code
-(defun print-sexps-as-code (input-string)
-  (with-input-from-string (stream input-string)
-    (loop
-      :for sexp := (read stream nil :eof)
-      :until (eq sexp :eof)
-      :do (trivial-formatter:print-as-code sexp)
-      :collect sexp)))
+(defhandler :triv-asdf cd
+  (with-code-in-temporary-asdf-system
+    cd my-temp-system tmp-code-file
+    (newline-str (file-content-as-str tmp-code-file))))
