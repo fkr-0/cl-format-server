@@ -10,8 +10,8 @@
   :source-control (:git "")
 
   ;; Dependencies.
-  :depends-on (:usocket :bordeaux-threads :cl-indentify
-                :trivial-formatter :log4cl :fiveam)
+  :depends-on (:usocket :bordeaux-threads :cl-indentify :sblint
+                :trivial-formatter :lisp-critic :log4cl :fiveam)
 
   ;; Project stucture.
   :pathname "src"
