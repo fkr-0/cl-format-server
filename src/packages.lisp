@@ -20,6 +20,8 @@
     :list-handlers
     :file-exists-p
     :newline-str
+    :with-content-tmp-file
+    :with-calc-tmp-file
     :with-file-content
     :with-replacing-file
     :handle
