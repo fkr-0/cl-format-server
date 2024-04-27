@@ -5,6 +5,9 @@ all: test
 serve:
 	ros run --load ~/.sbclrc -- --load run.lisp --serve 8081
 
+sock:
+	ros run --load ~/.sbclrc -- --load run.lisp -u
+	
 client:
 	ros run --load ~/.sbclrc --  --load run.lisp --client-stdin 8081
 build:

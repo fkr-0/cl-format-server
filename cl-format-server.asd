@@ -10,7 +10,7 @@
   :source-control (:git "")
 
   ;; Dependencies.
-  :depends-on (:usocket :bordeaux-threads :cl-indentify :sblint :cl-ppcre
+  :depends-on (:usocket :bordeaux-threads :cl-indentify :sblint :cl-ppcre :unix-sockets
                 :trivial-formatter :lisp-critic :log4cl :fiveam)
 
   ;; Project stucture.
