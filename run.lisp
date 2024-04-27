@@ -13,7 +13,9 @@ If you don't want to land in the REPL, you can (quit) below or call lisp with th
 Another solution to run the app is to build and run a binary (see README).
 "
 
-(asdf:load-asd "./cl-format-server")
+;(asdf:load-asd "./cl-format-server")
+;()
+(asdf:load-system "cl-format-server")
 (load "src/packages.lisp")
 (load "src/core.lisp")
 (load "src/client.lisp")

@@ -3,26 +3,45 @@
 ;;;;; Define some utility functions
 
 (defun read-sexps-from-string (input-string &optional &key (read-fun #'read))
-  "Reads sexps from a string and returns a list of the sexps read. The default
-read function is `read` but you can pass any function that takes a stream as
-first argument and returns a sexp."
-  (with-input-from-string (stream input-string)
-    (loop
-      :for sexp := (funcall read-fun stream nil :eof)
-      :until (eq sexp :eof)
-      :collect sexp)))
+  "Reads sexps (S-expressions) from a string and returns a list of the sexps read.
+  The default read function is `read`, but you can pass any function that takes a
+  stream as the first argument and returns a sexp.
+  Args:
+    input-string: The string containing the S-expressions.
+    read-fun: The function used for reading the S-expressions.
+  Returns:
+    A list of S-expressions read from the string.
+  "
+  (handler-case
+    (with-input-from-string (stream input-string)
+      (loop
+        :for sexp := (funcall read-fun stream nil :eof)
+        :until (eq sexp :eof)
+        :collect sexp))
+    (error (e)
+      (log:error "Error reading S-expressions from string: ~A" e)
+      nil)))
+
 
 (defun keywordify (ele &rest suffixes)
-  "Converts a string to a keyword. The string is converted to uppercase and all
-characters in the string are converted to keywords. The suffixes are also
-converted to keywords and concatenated to the string with a \"-\" in between.
-For example (keywordify \"my-fun\" \"file\" \"replace\") would return the
-keyword :MY-FUN-FILE-REPLACE"
-  (let* ((clean-str (lambda (str) (string-upcase (string-trim '(#\: #\-) (string str)))))
-          (ele (funcall clean-str ele))
-          (suffixes (mapcar clean-str suffixes))
-          (suffixes (if suffixes (reduce #'(lambda (a b) (concatenate 'string a "-" b))suffixes) nil)))
-    (intern (string-upcase (concatenate 'string "" ele (if suffixes (concatenate 'string "-" suffixes) "") )) 'keyword)))
+  "Converts a string and optional suffixes to a keyword.
+  The string is converted to uppercase and concatenated with any suffixes, separated by `-`.
+  Args:
+    ele: The primary string to convert.
+    suffixes: Additional strings to concatenate.
+  Returns:
+    A keyword generated from the string and suffixes.
+  Example:
+    (keywordify \"my-fun\" \"file\" \"replace\") => :MY-FUN-FILE-REPLACE "
+  (handler-case
+    (let* ((clean-str (lambda (str) (string-upcase (string-trim '(#\: #\-) (string str)))))
+            (ele (funcall clean-str ele))
+            (suffixes (mapcar clean-str suffixes)))
+      (intern (concatenate 'string ele (apply #'concatenate 'string (mapcar (lambda (s) (concatenate 'string "-" s)) suffixes))) 'keyword))
+    (error (e)
+      (log:error "Error in keywordify: ~A" e)
+      nil)))
+
 
 (defun str-replace (str old new)
   "Replaces all occurrences of `old` with `new` in `str`
@@ -35,22 +54,40 @@ keyword :MY-FUN-FILE-REPLACE"
   Example:
     (str-replace \"Hello World!\" \"World\" \"Universe\")
     => \"Hello Universe!\""
+  (when (or (string= old "") (< (length str) (length old)))
+    (return-from str-replace str))
   (with-output-to-string (out)
     (loop
       :with old-len := (length old)
-      :for i :from 0
+      :for i :from 0 :below (+ old-len (length str))
       :while (< i (length str))
-      :if (string= old (subseq str i (+ i old-len)))
+      :if (and
+            (<= i (- (length str)old-len ))
+            (string= old (subseq str i (+ i old-len))))
       :do (progn
             (write-string new out)
             (incf i (1- old-len)))
       :else
-      :do (write-char (char str i) out))))
+      :do (when (< i (length str))
+            (write-char (char str i) out)))))
 
 (defun str-to-file (str file-path &key (if-exists :supersede))
-  "Writes a string to a file. If the file exists it is overwritten by default"
-  (with-open-file (stream file-path :direction :output :if-exists if-exists)
-    (write-sequence str stream)))
+  "Writes a string to a file at a given path.
+  Args:
+    str: The string to write.
+    file-path: The file path where to write the string.
+    if-exists: The action to take if the file already exists. Defaults to :supersede.
+  Returns:
+    NIL on success, or an error message on failure.
+  "
+  (handler-case
+    (with-open-file (stream file-path :direction :output :if-exists if-exists)
+      (write-string str stream)
+      (force-output stream))
+    (error (e)
+      (log:error "Error writing string to file ~A: ~A" file-path e)
+      (format nil "Error writing to file: ~A" e))))
+
 
 (defun file-content-as-str (file-path)
   "Returns the content of a file as a string"
@@ -63,8 +100,7 @@ keyword :MY-FUN-FILE-REPLACE"
   "Returns a list of all handlers defined for the generic function `handle`"
   (loop
     :for name :in (sb-mop:generic-function-methods generic)
-    :collect (slot-value (car
-                           (sb-mop:method-specializers name) )'sb-pcl::object) ))
+    :collect (slot-value (car (sb-mop:method-specializers name) )'sb-pcl::object) ))
 
 (defun file-exists-p (file-path)
   "Returns true if file exists else nil"
@@ -176,14 +212,14 @@ Returns:
 (defgeneric handle (handler source-code-str)
   (:documentation "Handles the source-code-str with the handler"))
 
-(defmethod handle ((handler string) source-code-str)
-  "Allows specifying `handler' as a string. The string is converted to a keyword
-and the method is called again."
-  (handle (intern (string-upcase (string-trim '(#\: #\ ) handler)) 'keyword)
-    source-code-str))
+;; (defmethod handle ((handler string) source-code-str)
+;;   "Allows specifying `handler' as a string. The string is converted to a keyword
+;; and the method is called again."
+;;   (handle (intern (string-upcase (string-trim '(#\: #\ ) handler)) 'keyword)
+;;     source-code-str))
 
-(defmethod handle ((handler (eql :print)) source-code-str)
-  (print source-code-str))
+;; (defmethod handle ((handler (eql :print)) source-code-str)
+;;   (print source-code-str))
 
 (defmacro defhandler (handler-name code-str &body body)
   "Defines a handler for the generic function `handle`. The handler is defined
@@ -200,7 +236,8 @@ result of the body."
        ;; Define the method dispatching on :<handlername>
        (defmethod handle ((handler (eql ',handler-name-symbol)) ,code-str)
          (newline-str
-           ,@body))
+           (progn
+             ,@body)))
        ;; Define the method dispatching on :<handlername>-file
        (defmethod handle ((key (eql ,handler-file-symbol)) ,code-str)
          (when (listp ,code-str)
@@ -280,37 +317,47 @@ temporary system is deleted after the body has been evaluated.
 ;;   (log-info "Content Post: ~A" (file-content-as-str tmp-code-file))
 ;;   (newline-str (file-content-as-str tmp-code-file)))
 
+
 (defun print-sexps-as-code (input-string)
-  "Reads sexps from a string and prints them as code.
-  Arguments:
-    input-string: The string to read sexps from
+  "Reads sexps from a string and prints them as formatted Lisp code.
+  Args:
+    input-string: The string containing the sexps.
   Returns:
-    The string with all sexps printed as formatted strings
+    A string with the formatted Lisp code.
   Example:
     (print-sexps-as-code \"(format nil \\\"Hello, world!\\\") (format nil \\\"dud\\\")\")
     => \"(format nil \\\"Hello, world!\\\")\"
        \"(format nil \\\"dud\\\")\""
-  (with-output-to-string (o-stream)
+  (handler-case
+    (with-output-to-string (o-stream)
+      (with-input-from-string (stream input-string)
+        (loop
+          :for sexp := (trivial-formatter:read-as-code stream nil :eof)
+          :until (eq sexp :eof)
+          :do (trivial-formatter:print-as-code sexp o-stream)
+          :do (format o-stream "~%") ;; insert ~&?
+          )))
+    (error (e)
+      (log:error "Error in print-sexps-as-code: ~A" e)
+      (error "Error reading S-expressions from string"))))
+
+(defun sexps-as-list (input-string)
+  "Reads sexps (S-expressions) from a string and returns them as a list of Lisp objects.
+  This function is useful for parsing multiple expressions from a single string.
+  Args:
+    input-string: The string containing the S-expressions.
+  Returns:
+    A list of Lisp objects corresponding to the S-expressions in the input string.
+  Example:
+    (sexps-as-list \"(format nil \\\"Hello, world!\\\") (format nil \\\"dud\\\")\")
+    => ((FORMAT NIL \"Hello, world!\") (FORMAT NIL \"dud\"))
+  "
+  (handler-case
     (with-input-from-string (stream input-string)
       (loop
         :for sexp := (trivial-formatter:read-as-code stream nil :eof)
         :until (eq sexp :eof)
-        :do (trivial-formatter:print-as-code sexp o-stream)
-        :do (format o-stream "~%") ;; insert ~&?
-        ))))
-;; :collect sexp))))
-
-(defun sexps-as-list (input-string)
-  "Reads sexps from a string and returns them as a list.
-  Arguments:
-    input-string: The string to read sexps from
-  Returns:
-    A list of the sexps read as regular lisp objects
-  Example:
-    (sexps-as-list \"(format nil \\\"Hello, world!\\\") (format nil \\\"dud\\\")\")
-    => ((FORMAT NIL \"Hello, world!\") (FORMAT NIL \"dud\))"
-  (with-input-from-string (stream input-string)
-    (loop
-      :for sexp := (trivial-formatter:read-as-code stream nil :eof)
-      :until (eq sexp :eof)
-      collect  sexp)))
+        :collect sexp))
+    (error (e)
+      (log:error "Error in sexps-as-list: ~A" e)
+      (error "Error reading S-expressions from string"))))
