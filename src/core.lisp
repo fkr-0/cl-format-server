@@ -5,6 +5,8 @@
 ;; Defines the default port for the server
 (defparameter *default-server-port* 8080
   "The default port on which the server listens.")
+(defvar *default-server-fock* "/tmp/cl-format-server.sock"
+  "The default port on which the server listens.")
 (defparameter *default-server-sock* "/tmp/cl-format-server.sock"
   "The default port on which the server listens.")
 
@@ -131,6 +133,9 @@
       while request do
       (process-request client-stream request ))))
 
+;; (handle-request ":trivial-formatter (format t \"Hello, world!\")")
+;; (stop-server *server-instance*)
+
 (defun handle-request (request)
   "Handles an incoming request by parsing and executing it.
   Args:
@@ -143,7 +148,7 @@
     (let* ((parsed-request (parse-request request))
             (handler (car parsed-request))
             (source-code (cadr parsed-request)))
-      (if (null handler)
+      (when (null handler)
         (setf handler *default-handler*))
       (handle (or (find-symbol (string-upcase handler) :keyword) *default-handler*)
         source-code))
@@ -179,30 +184,21 @@
     => \":trivial-formatter (format t \"Hello, world!\")\""
   (log:info "Reading request")
   (read-line stream nil nil))
+
 ;; Processes a single request and sends a response
 (defmethod process-request ((client-stream usocket:stream-usocket) request )
   "Processes a single request and sends the corresponding response."
   (let ((response (handle-request request )))
     (log:info "UsockResponse: ~A" response)
     (format client-stream "~A~%" response)
-
     (finish-output client-stream)))
+
 (defmethod process-request ((client-stream flexi-streams:flexi-io-stream) request )
   (let ((response (handle-request request )))
     (log:info "FlexiResponse: ~A" response)
     (dotimes (x (length response))
       (write-byte (char-int (char response x)) client-stream))
-    (finish-output client-stream))
-
-  ;; (format client-stream "~A~%" response)
-  ;; (with-output-to-string (out)
-  ;;   ;; (format out "~A~%" response)
-  ;;   ;; (unix-sockets:write-unix-socket client-stream (get-output-stream-string out))
-  ;;   )
-  ;; (unix-sockets:write-unix-socket client-stream "/tmp/cl-format-server.out")
-
-
-  )
+    (finish-output client-stream)))
 ;; (stop-server *server-instance*)
 ;;;; Server Management Functions
 
@@ -266,6 +262,3 @@
   (unix-sockets:close-unix-socket (server-socket server))
   (bordeaux-threads:join-thread (server-thread server))
   (log:info "Server stopped"))
-
-
-;; Additional functions for parsing and request validation can be added here...
