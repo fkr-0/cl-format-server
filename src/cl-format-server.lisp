@@ -1,9 +1,11 @@
 (in-package :cl-format-server)
 
+
 (defun help ()
   (format t "~&Usage:
 
   cl-format-server --serve [port] \n --client-stdin [port]~&"))
+
 
 (defun ctrl-c-handler (signal code scp)
   (declare (ignore signal code scp))
@@ -24,35 +26,32 @@
     (uiop:quit))
   (cond
     ((member "cli" argv :test #'equal)
-      (progn
-        (format t "~A~A~%" #\NewLine (handle (second argv) (third argv)))))
+      (format t "~A~A~%" #\NewLine (handle (second argv) (third argv))))
     ((member "--sample-request" argv :test #'equal)
       (send-request "( defun dudu (x) (do-some-risky business))" :formatter "trivial-formatter" :port 8080))
     ((member "--client-stdin" argv :test #'equal)
       (simple-req (read-line) (parse-integer (second argv) :junk-allowed t) ))
     ((or (member "--unix-sock" argv :test #'equal ) (member "-u" argv :test #'equal))
-      (progn
-        (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
-        (log:info "Starting server on unix socket: ~a"
-          (or (and (second argv)(parse-integer
-                                  (second argv) :junk-allowed t))*default-server-sock*))
-        (setf *server-instance*
-          (start-unix-socket-server
-            (or (and (second argv)
-                  (parse-integer (second argv)
-                    :junk-allowed t)) *default-server-sock*) ))))
+      (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
+      (log:info "Starting server on unix socket: ~a"
+        (or (and (second argv)(parse-integer
+                                (second argv) :junk-allowed t))*default-server-sock*))
+      (setf *server-instance*
+        (start-unix-socket-server
+          (or (and (second argv)
+                (parse-integer (second argv)
+                  :junk-allowed t)) *default-server-sock*) )))
     (t;(member "--server" argv :test #'equal)
-      (progn
-        (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
-        (log:info "Starting server on port: ~a"
-          (or (and (second argv)(parse-integer
-                                  (second argv) :junk-allowed t))*default-server-port*))
-        (setf *server-instance*
-          (start-network-server
-            (or (and (second argv)
-                  (parse-integer (second argv)
-                    :junk-allowed t))
-              *default-server-port*)))))))
+      (sb-sys:enable-interrupt sb-unix:sigint #'ctrl-c-handler)
+      (log:info "Starting server on port: ~a"
+        (or (and (second argv)(parse-integer
+                                (second argv) :junk-allowed t))*default-server-port*))
+      (setf *server-instance*
+        (start-network-server
+          (or (and (second argv)
+                (parse-integer (second argv)
+                  :junk-allowed t))
+            *default-server-port*))))))
 
 
 (defun main ()

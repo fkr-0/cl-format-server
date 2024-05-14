@@ -97,3 +97,49 @@ test file, but with a different content." (file-content-as-str test-fn)))))
                            test-fn test-fh "This is a test file.")
     (is (equal "Test handler: This is a test file.
 " (handle :test-handler-file test-fn)))))
+
+
+(defpackage #:cl-format-server-tests
+  (:use #:cl #:fiveam))
+
+(in-package :cl-format-server-tests)
+
+;; Load or define 'keywordify', 'sexps-as-list', and 'str-replace' before running tests
+
+;; Tests for 'keywordify'
+(test keywordify-single-input
+  (is (equal (keywordify "test") :TEST)))
+
+(test keywordify-multiple-inputs
+  (is (equal (keywordify "test" "func" "run") :TEST-FUNC-RUN)))
+
+(test keywordify-special-chars
+  (is (equal (keywordify "test-func" "1") :TEST-FUNC-1)))
+
+
+
+;; Tests for 'sexps-as-list'
+(test sexps-as-list-valid-expression
+  (is (equal (sexps-as-list "(+ 1 2)") '((+ 1 2)))))
+
+(test sexps-as-list-multiple-expressions
+  (is (equal (sexps-as-list "(+ 1 2) (- 3 2)") '((+ 1 2) (- 3 2)))))
+
+(test sexps-as-list-empty-string
+  (is (equal (sexps-as-list "") '())))
+
+(test sexps-as-list-malformed-expression
+  (signals error (sexps-as-list "(+ 1 2")))
+
+;; Tests for 'str-replace'
+(test str-replace-existing-substring
+  (is (equal (str-replace "Hello World" "World" "Lisp") "Hello Lisp")))
+
+(test str-replace-nonexisting-substring
+  (is (equal (str-replace "Hello World" "Java" "Lisp") "Hello World")))
+
+(test str-replace-empty-old-substring
+  (is (equal (str-replace "Hello World" "" "Lisp") "Hello World")))
+
+(test str-replace-empty-new-substring
+  (is (equal (str-replace "Hello World" "World" "") "Hello ")))
