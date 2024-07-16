@@ -5,8 +5,7 @@
 ;; Defines the default port for the server
 (defparameter *default-server-port* 8080
   "The default port on which the server listens.")
-(defvar *default-server-fock* "/tmp/cl-format-server.sock"
-  "The default port on which the server listens.")
+
 (defparameter *default-server-sock* "/tmp/cl-format-server.sock"
   "The default port on which the server listens.")
 
@@ -18,32 +17,36 @@
 (defvar *server-instance* nil
   "The server instance that is currently running. Set when the server starts.")
 
-
-;;;; Server Class Definition
-
 ;; Defines the lisp-server class with essential properties
 (defclass lisp-server ()
-  ((linters :initform nil :accessor linters)
-    (formatters :initform nil :accessor formatters)
-    (server-thread :initform nil :accessor server-thread)
+  ((server-thread :initform nil :accessor server-thread)
     (server-socket :initform nil :accessor server-socket)
     (running :initform nil :accessor running))
-  (:documentation "Class representing the Lisp server with configuration and state.
-
-  Attributes:
-    linters: A list of linters to use for linting requests.
-    port: The port on which the server listens.
-    formatters: A list of formatters to use for formatting requests.
-    server-thread: The thread on which the server is running.
-    server-socket: The socket on which the server is listening.
-    running: Whether the server is currently running."))
+  (:documentation "Class representing the generic Lisp server with configuration and state."))
 
 (defclass lisp-network-server (lisp-server)
-  ((port :initform 8080 :accessor port-of))
-  (:documentation "Class representing the Lisp server with configuration and state."))
+  ((port :initform 8080 :accessor port-of :initarg :port))
+  (:documentation "Lisp server using network sockets."))
 
 (defclass lisp-unix-socket-server (lisp-server)
-  ((socket-path :initform nil :accessor socket-path-of))(:documentation "Class representing the Lisp server with configuration and state."))
+  ((socket-path :initform "/tmp/cl-format-server.sock" :accessor socket-path-of :initarg :socket-path))
+  (:documentation "Lisp server using Unix sockets."))
+
+;; Base class method to start the server
+(defun start-server (server)
+  (initialize-server-socket server)
+  (setf (running server) t)
+  (server-loop server))
+
+;; Abstract method for initializing server socket
+(defgeneric initialize-server-socket (server))
+
+;; Concrete implementations for each server type
+(defmethod initialize-server-socket ((server lisp-network-server))
+  (setf (server-socket server) (usocket:socket-listen usocket:*wildcard-host* (port-of server))))
+
+(defmethod initialize-server-socket ((server lisp-unix-socket-server))
+  (setf (server-socket server) (unix-sockets:make-unix-socket (socket-path-of server))))
 
 ;;;; Server Initialization
 
@@ -57,49 +60,33 @@
     server: The server instance to initialize."
   (setf *server-instance* server))
 
-;;;; Server Loop and Request Handling
+(defmethod server-loop ((server lisp-server))
+  "Main server loop that listens for incoming connections and handles them."
 
-;; Main loop for handling incoming requests
-(defmethod server-loop ((server lisp-network-server) )
-  "Main server loop. Continuously accepts and handles client requests.
+  (log:info "Server started on ~A" server)
+  (unwind-protect
 
-  Args:
-    server: The server instance to run.
-  Returns:
-    None.
-  Example:
-    (server-loop server)"
-  (let ((server-socket (server-socket server)))
     (loop while (running server) do
-      (let ((client-socket (usocket:socket-accept server-socket)))
-        (setf (server-thread server)
-          (bordeaux-threads:make-thread
-            (lambda ()
-              (unwind-protect
-                (handle-client  server client-socket)
-                (usocket:socket-close client-socket)))))))))
+      (handler-case
+        (let ((client-socket (accept-connection server)))
+          (handle-client server client-socket))
+        (error (e)
+          (log:error "Failed to handle client due to error: ~A" e)))))
+  (log:info "Server stopped")
+  (close-server-socket (server-socket server)))
 
-(defmethod server-loop ((server lisp-unix-socket-server) )
-  "Main server loop. Continuously accepts and handles client requests.
+(defun respond-with-error (client-socket server error-message)
+  (with-open-stream (stream (socket-stream server client-socket))
+    (format stream "HTTP/1.1 500 Internal Server Error~%Content-Type: text/plain~%~%~A" error-message)
+    (finish-output stream)))
 
-  Args:
-    server: The server instance to run.
-  Returns:
-    None.
-  Example:
-    (server-loop server)"
-  (let ((server-socket (server-socket server)))
-    (loop while (running server) do
-      (let ((client-socket (unix-sockets:accept-unix-socket server-socket)))
-        (setf (server-thread server)
-          (bordeaux-threads:make-thread
-            (lambda ()
-              (unwind-protect
-                (handle-client server client-socket)
-                (unix-sockets:close-unix-socket client-socket)))))))))
+(defmethod socket-stream ((server lisp-network-server) client-socket)
+  (usocket:socket-stream client-socket))
 
+(defmethod socket-stream ((server lisp-unix-socket-server) client-socket)
+  (unix-sockets:unix-socket-stream client-socket))
 
-(defmethod handle-client ((server lisp-network-server) client-socket )
+(defmethod handle-client ((server lisp-server) client-socket )
   "Handles a client connection, reading and responding to requests.
 
   Args:
@@ -109,32 +96,46 @@
     None.
   Example:
     (handle-client client-socket server)"
-  (declare (ignore server))
-  (with-open-stream (client-stream (usocket:socket-stream client-socket))
+  (with-open-stream (client-stream (socket-stream server client-socket))
     (log:info "Client connected: ~A" client-socket)
-    (loop for request = (read-request client-stream)
-      while request do
-      (process-request  client-stream request))))
+    (handler-case
+      (loop for request = (read-request client-stream)
+        while request do
+        (respond client-stream (handle-request request)))
+      (error (e)
+        (log:error "Error during client request processing: ~A" e)
+        (respond-with-error client-socket server (format nil "Internal Server Error ~A~%" e))))))
 
-(defmethod handle-client ((server lisp-unix-socket-server) client-socket )
-  "Handles a client connection, reading and responding to requests.
 
-  Args:
-    client-socket: The client socket to handle.
-    server: The server instance.
-  Returns:
-    None.
-  Example:
-    (handle-client client-socket server)"
-  (declare (ignore server))
-  (with-open-stream (client-stream (unix-sockets:unix-socket-stream client-socket))
-    (log:info "Client connected: ~A" client-socket)
-    (loop for request = (read-request client-stream)
-      while request do
-      (process-request client-stream request ))))
 
-;; (handle-request ":trivial-formatter (format t \"Hello, world!\")")
-;; (stop-server *server-instance*)
+;; Abstract accept connection method
+(defgeneric accept-connection (server))
+
+;; Concrete implementations for accepting connections
+(defmethod accept-connection ((server lisp-network-server))
+  (usocket:socket-accept (server-socket server)))
+
+(defmethod accept-connection ((server lisp-unix-socket-server))
+  (unix-sockets:accept-unix-socket (server-socket server)))
+
+;; Generic stop server method
+(defmethod stop-server ((server lisp-server))
+  (setf (running server) nil)
+  (close-server-socket (server-socket server))
+  (log:info "Server stopped")
+  (bordeaux-threads:join-thread (server-thread server)))
+
+;; Abstract close server socket method
+(defgeneric close-server-socket (socket))
+
+;; Implementations for closing server sockets
+(defmethod close-server-socket ((socket usocket:usocket))
+  (usocket:socket-close socket))
+
+(defmethod close-server-socket ((socket unix-sockets::unix-socket))
+  (unix-sockets:close-unix-socket socket)
+  ;; Remove the socket file
+  (uiop:delete-file-if-exists (socket-path-of *server-instance*)))
 
 (defun handle-request (request)
   "Handles an incoming request by parsing and executing it.
@@ -155,7 +156,6 @@
     (error (e)
       (log:error "Error handling request ~A: ~A" request e)
       "Error processing request")))
-
 (defun parse-request (request)
   "Parses the incoming request string.
   Args:
@@ -185,80 +185,24 @@
   (log:info "Reading request")
   (read-line stream nil nil))
 
-;; Processes a single request and sends a response
-(defmethod process-request ((client-stream usocket:stream-usocket) request )
-  "Processes a single request and sends the corresponding response."
-  (let ((response (handle-request request )))
+(defgeneric respond (client-stream response)
+  (:method ((client-stream usocket:stream-usocket) response)
     (log:info "UsockResponse: ~A" response)
     (format client-stream "~A~%" response)
-    (finish-output client-stream)))
-
-(defmethod process-request ((client-stream flexi-streams:flexi-io-stream) request )
-  (let ((response (handle-request request )))
+    (finish-output client-stream))
+  (:method ((client-stream flexi-streams:flexi-io-stream) response)
     (log:info "FlexiResponse: ~A" response)
     (dotimes (x (length response))
       (write-byte (char-int (char response x)) client-stream))
-    (finish-output client-stream)))
-;; (stop-server *server-instance*)
-;;;; Server Management Functions
-
-;; Starts the server on the specified port
-(defun start-network-server (&optional (port *default-server-port*))
-  "Starts the server on the specified port.
+    (finish-output client-stream))
+  (:documentation "Responds to a client request with the given response.
 
   Args:
-    port: The port on which to start the server.
+    client-stream: The client stream to respond to.
+    response: The response to send.
   Returns:
     None.
   Example:
-    (start-server 8080)"
-  (let ((server (make-instance 'lisp-network-server)))
-    ;; (log:info "Starting server on port ~A" port)
-    (setf (port-of server) port)
-    (setf (server-socket server) (usocket:socket-listen usocket:*wildcard-host* port))
-    (setf (running server) t)
-    ;; (setf (server-thread server) (bordeaux-threads:make-thread (lambda () (server-loop server))))
-    (unwind-protect
-      (server-loop
-        server)
-      (stop-server server))))
+    (respond client-stream \"Hello, world!\")"))
 
-;; Starts the server on the specified port
-(defun start-unix-socket-server (&optional (socket-path *default-server-sock*))
-  "Starts the server on the specified port.
 
-  Args:
-    port: The port on which to start the server.
-  Returns:
-    None.
-  Example:
-    (start-server 8080)"
-  (let ((server (make-instance 'lisp-unix-socket-server)))
-    (when (probe-file socket-path)
-      (delete-file socket-path))
-    (setf (socket-path-of server) socket-path)
-    (log:info "Starting server on socket ~A" socket-path)
-
-    (setf (server-socket server) (unix-sockets:make-unix-socket
-                                   socket-path))
-    (setf (running server) t)
-    ;; (setf (server-thread server) (bordeaux-threads:make-thread (lambda () (server-loop server))))
-    (unwind-protect
-      (server-loop
-        server))
-    (stop-server server)))
-
-;; Stops the server gracefully
-(defmethod stop-server ((server lisp-network-server))
-  "Stops the running server instance."
-  (setf (running server) nil)
-  (usocket:socket-close (server-socket server))
-  (bordeaux-threads:join-thread (server-thread server))
-  (log:info "Server stopped"))
-
-(defmethod stop-server ((server lisp-unix-socket-server))
-  "Stops the running server instance."
-  (setf (running server) nil)
-  (unix-sockets:close-unix-socket (server-socket server))
-  (bordeaux-threads:join-thread (server-thread server))
-  (log:info "Server stopped"))
