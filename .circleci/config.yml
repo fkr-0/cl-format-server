@@ -8,7 +8,7 @@ version: 2
 jobs:
   sbcl:
     docker:
-      - image: circleci/buildpack-deps:stretch-curl
+      - image: cimg/base:2024.07
     environment:
       LISP: sbcl-bin
     steps:
@@ -29,6 +29,7 @@ jobs:
       - run: ros install cxxxr/sblint
       - run: ros install 40ants/40ants-critic
       - run: run-fiveam -e t -l cl-format-server-tests :cl-server-tests
+      - run: make
       #- run: run-prove foo.asd
       #- run: rove foo.asd
 
