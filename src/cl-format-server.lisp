@@ -21,6 +21,19 @@
   (let ((port-arg (second args)))
     (or (and port-arg (parse-integer port-arg :junk-allowed t)) default)))
 
+(defun parse-socket-path-or-default (args default)
+  "Parse socket path from arguments or return default if none is specified."
+  ;; is second args a valid socket-path:
+  ;; directory must exist, file must not exist
+  (if (second args)
+    (let* ((socket-path-arg (second args))
+            (socket-path-exists (uiop:file-exists-p socket-path-arg))
+            (socket-dir-exists (uiop:directory-exists-p (uiop:pathname-directory-pathname socket-path-arg))))
+      (if (and (null socket-path-exists) socket-dir-exists)
+        socket-path-arg
+        default))
+    default))
+
 
 (defun ctrl-c-handler (signal code scp)
   (declare (ignore signal code scp))
@@ -43,7 +56,7 @@
     ((member "--client-stdin" argv :test #'equal)
       (simple-req (read-line) (parse-port-or-default argv *default-server-port*)))
     ((member "--unix-sock" argv :test #'equal)
-      (start-server-by-type "unix" (parse-port-or-default argv *default-server-sock*)))
+      (start-server-by-type "unix" (parse-socket-path-or-default argv *default-server-sock*)))
     ((member "--serve" argv :test #'equal)
       (start-server-by-type "network" (parse-port-or-default argv *default-server-port*)))
     (t

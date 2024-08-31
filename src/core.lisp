@@ -69,9 +69,11 @@
     (loop while (running server) do
       (handler-case
         (let ((client-socket (accept-connection server)))
-          (handle-client server client-socket))
+          (when client-socket
+            (handle-client server client-socket)))
         (error (e)
-          (log:error "Failed to handle client due to error: ~A" e)))))
+          (when (running server)
+            (log:error "Failed to handle client due to error: ~A" e))))))
   (log:info "Server stopped")
   (close-server-socket (server-socket server)))
 
