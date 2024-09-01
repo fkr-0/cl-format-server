@@ -30,9 +30,12 @@ jobs:
       - run: ros install g000001/lisp-critic # 40ants/40ants-critic
       - run: run-fiveam -e t -l cl-format-server-tests :cl-server-tests
       - run: make
+      - run: make build
       #- run: run-prove foo.asd
       #- run: rove foo.asd
-
+      - store_artifacts:
+          path: src/cl-format-server
+          destination: cl-format-server-bin
 workflows:
   version: 2
   run_tests:

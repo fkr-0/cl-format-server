@@ -7,11 +7,12 @@ serve:
 
 sock:
 	ros run --load ~/.sbclrc -- --load run.lisp --unix-sock
-	
+
 client:
 	ros run --load ~/.sbclrc --  --load run.lisp --client-stdin 8081
+
 build:
-	$(LISP)	--non-interactive \
+	ros run --load ~/.sbclrc --non-interactive \
 		--load cl-format-server.asd \
 		--eval '(ql:quickload :cl-format-server)' \
 		--eval '(asdf:make :cl-format-server)'
